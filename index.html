@@ -167,6 +167,13 @@ th { background: #e9f2fb; color: var(--escuro); }
 .tabela-escala th, .tabela-escala td { white-space: nowrap; }
 .trabalho { background: #e0f3ec; }
 .folga { background: #f0f3f7; }
+.ajustado { outline: 2px solid #e1a73a; outline-offset: -2px; }
+.tabela-escala td.dia { cursor: pointer; line-height: 1.15; }
+.tabela-escala td.dia:hover { filter: brightness(.93); }
+.tabela-escala .hora { display: block; font-size: 10px; color: #3c5a74; }
+.tabela-semana { width: auto; min-width: 520px; }
+.tabela-semana input { margin: 0; padding: 5px; }
+label.normal { font-weight: normal; }
 .divergencia { color: #9b5000; font-weight: bold; }
 .oculto { display: none !important; }
 .legenda { display: flex; gap: 15px; margin: 10px 0; }
@@ -336,6 +343,65 @@ button.link { background: none; color: var(--azul); padding: 8px 0; text-decorat
     </p>
   </section>
 
+  <details class="painel nao-imprimir" id="painel-form">
+    <summary>Configurar formulário padrão (PDF)</summary>
+    <p class="pequeno">
+      Estes textos aparecem no botão "Formulário padrão (PDF)" e ficam salvos
+      na sua conta, valendo para todas as abas. Na nota, use
+      <strong>{carga}</strong> para a carga da aba (ex.: 42) e
+      <strong>{data}</strong> para a data do novo horário.
+    </p>
+    <form id="form-config" novalidate>
+      <div class="grade">
+        <label>Título
+          <input id="cfg-titulo" maxlength="120">
+        </label>
+        <label>Subtítulo
+          <input id="cfg-subtitulo" maxlength="120">
+        </label>
+        <label>Código
+          <input id="cfg-codigo" maxlength="60">
+        </label>
+        <label>Versão
+          <input id="cfg-versao" maxlength="20">
+        </label>
+        <label>Data do novo horário
+          <input id="data-novo" type="date">
+        </label>
+        <label>Linhas mínimas por setor
+          <input id="cfg-linhas" type="number" min="0" max="40" step="1">
+        </label>
+      </div>
+
+      <h3>Nota do rodapé</h3>
+      <label><input type="checkbox" id="cfg-mostrar-nota">Mostrar a nota no formulário</label>
+      <textarea id="cfg-nota" maxlength="3000"></textarea>
+
+      <h3>Assinaturas (deixe em branco para não imprimir)</h3>
+      <div class="grade">
+        <label>Assinatura 1 <input id="cfg-ass1" maxlength="80"></label>
+        <label>Assinatura 2 <input id="cfg-ass2" maxlength="80"></label>
+        <label>Assinatura 3 <input id="cfg-ass3" maxlength="80"></label>
+      </div>
+
+      <h3>Logo</h3>
+      <p class="pequeno">PNG ou JPG de até 300 KB. Fica no canto superior esquerdo.</p>
+      <img id="cfg-previa-logo" class="previa-logo" alt="Logo atual">
+      <p id="cfg-sem-logo" class="pequeno oculto">Sem logo.</p>
+      <div class="botoes">
+        <button type="button" id="cfg-trocar-logo" class="secundario">Trocar logo</button>
+        <button type="button" id="cfg-logo-padrao" class="secundario">Usar logo padrão</button>
+        <button type="button" id="cfg-remover-logo" class="secundario">Sem logo</button>
+        <input id="cfg-arquivo-logo" type="file" accept="image/png,image/jpeg" class="oculto">
+      </div>
+
+      <div class="botoes">
+        <button type="submit">Salvar configuração</button>
+        <button type="button" id="cfg-restaurar" class="perigo">Voltar ao padrão original</button>
+      </div>
+    </form>
+  </details>
+
   <section class="painel nao-imprimir">
     <h2 id="titulo-formulario">Adicionar empregado</h2>
     <form id="formulario">
@@ -395,6 +461,19 @@ button.link { background: none; color: var(--azul); padding: 8px 0; text-decorat
           <label><input type="checkbox" name="dias" value="5" checked>Sexta</label>
           <label><input type="checkbox" name="dias" value="6">Sábado</label>
         </div>
+        <p>
+          <label class="normal"><input type="checkbox" id="variar-semana">Horário diferente em cada dia da semana</label>
+        </p>
+        <div id="campos-semana" class="oculto rolagem">
+          <p class="pequeno">
+            Ajuste entrada, saída e intervalo de cada dia marcado. Os campos
+            Entrada, Saída e Intervalo de cima servem como horário principal.
+          </p>
+          <table class="tabela-semana">
+            <thead><tr><th class="esquerda">Dia</th><th>Entrada</th><th>Saída</th><th>Intervalo (min)</th><th>Jornada líquida</th></tr></thead>
+            <tbody id="linhas-semana"></tbody>
+          </table>
+        </div>
       </div>
 
       <div id="campos-12x36" class="oculto">
@@ -447,6 +526,31 @@ button.link { background: none; color: var(--azul); padding: 8px 0; text-decorat
     <div class="legenda">
       <span><span class="amostra trabalho"></span>T = trabalho</span>
       <span><span class="amostra folga"></span>F = folga</span>
+      <span><span class="amostra ajustado"></span>Dia ajustado manualmente</span>
+    </div>
+    <p class="pequeno nao-imprimir">
+      Clique em um dia da escala para definir um horário diferente ou folga só naquela data.
+    </p>
+
+    <div id="painel-dia" class="painel nao-imprimir oculto" style="border-color:#e1a73a">
+      <h3 style="margin-top:0">Ajustar dia</h3>
+      <p id="dia-info"></p>
+      <div class="grade">
+        <label>Situação
+          <select id="dia-tipo">
+            <option value="escala">Seguir a escala normal</option>
+            <option value="T">Trabalho com horário específico</option>
+            <option value="F">Folga</option>
+          </select>
+        </label>
+        <label class="dia-hora">Entrada <input id="dia-entrada" type="time"></label>
+        <label class="dia-hora">Saída <input id="dia-saida" type="time"></label>
+        <label class="dia-hora">Intervalo (min) <input id="dia-intervalo" type="number" min="0" max="1439"></label>
+      </div>
+      <div class="botoes">
+        <button type="button" id="dia-salvar">Salvar dia</button>
+        <button type="button" id="dia-cancelar" class="secundario">Cancelar</button>
+      </div>
     </div>
     <p class="pequeno">
       Horas atribuídas ao mês de início do turno. Feriados, férias,
@@ -475,8 +579,8 @@ button.link { background: none; color: var(--azul); padding: 8px 0; text-decorat
    - Project URL
    - chave "anon" / "publishable" (é pública; a proteção vem do RLS)
    NUNCA coloque aqui a chave "service_role" / "secret".            */
-const SUPABASE_URL = "https://qbclskpopocziryjfdxz.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_7lmizeNYI9jRH0H6AYyo3Q_-xEMdhHm";
+const SUPABASE_URL = "https://SEU-PROJETO.supabase.co";
+const SUPABASE_ANON_KEY = "SUA-CHAVE-ANON-OU-PUBLISHABLE";
 /* ============================================================== */
 
 const TABELA = "escalas_usuario";
@@ -548,13 +652,65 @@ function abaInicial(a) {
 function dadosIniciais() {
   const obj = {};
   ABAS.forEach(a => { obj[a] = abaInicial(a); });
+  obj.formulario = configPadrao();
   return obj;
 }
 
 /* Acrescenta as abas que faltarem (backups antigos só têm 40h e 42h). */
 function normalizarDados(obj) {
   ABAS.forEach(a => { if (!obj[a]) obj[a] = abaInicial(a); });
+  obj.formulario = normalizarConfig(obj.formulario);
   return obj;
+}
+
+/* Configuração editável do formulário FO.POLISTM.AP.018. */
+const NOTA_PADRAO =
+  "Conforme emenda constitucional nº 141, de 16 de outubro de 2026, que altera o art. 7º " +
+  "da Constituição Federal e prevê no Art. 6º A redução da duração do trabalho normal para " +
+  "40 (quarenta) horas semanais será implementada de forma progressiva, observado o seguinte: " +
+  "I - 2 (dois) meses após a publicação desta Emenda Constitucional, a duração do trabalho " +
+  "normal não excederá a 42 (quarenta e duas) horas semanais. " +
+  "Assim sendo, esta escala já apresenta adequação para {carga}h semanais a partir de {data}.";
+
+function configPadrao() {
+  return {
+    titulo: "FORMULÁRIO - Administração de Pessoal",
+    subtitulo: "Escala de Trabalho Mensal",
+    codigo: "FO.POLISTM.AP.018",
+    versao: "001",
+    dataNovo: "2026-12-15",
+    linhas: 15,
+    mostrarNota: true,
+    nota: NOTA_PADRAO,
+    assinaturas: [
+      "Assinatura e Carimbo da Coordenação",
+      "Assinatura e Carimbo da Diretoria",
+      "Administração de Pessoal"
+    ],
+    logo: "padrao"            // "padrao", "" (sem logo) ou data URL enviada
+  };
+}
+
+function normalizarConfig(c) {
+  const p = configPadrao();
+  if (!c || typeof c !== "object") return p;
+  const texto = (v, d) => typeof v === "string" ? v : d;
+  const ass = Array.isArray(c.assinaturas) ? c.assinaturas : p.assinaturas;
+  const linhas = Number(c.linhas);
+  return {
+    titulo: texto(c.titulo, p.titulo),
+    subtitulo: texto(c.subtitulo, p.subtitulo),
+    codigo: texto(c.codigo, p.codigo),
+    versao: texto(c.versao, p.versao),
+    dataNovo: /^(\d{4}-\d{2}-\d{2})?$/.test(c.dataNovo || "") ? (c.dataNovo || "") : p.dataNovo,
+    linhas: Number.isInteger(linhas) && linhas >= 0 && linhas <= 40 ? linhas : p.linhas,
+    mostrarNota: typeof c.mostrarNota === "boolean" ? c.mostrarNota : p.mostrarNota,
+    nota: texto(c.nota, p.nota),
+    assinaturas: [0, 1, 2].map(i => texto(ass[i], "")),
+    logo: c.logo === "" || c.logo === "padrao" ||
+          (typeof c.logo === "string" && /^data:image\/(png|jpeg);base64,/.test(c.logo))
+      ? c.logo : "padrao"
+  };
 }
 
 function idNovo() {
@@ -635,7 +791,15 @@ function validarBackup(obj) {
         (e.matricula === undefined || typeof e.matricula === "string") &&
         (e.horarioAnterior === undefined || typeof e.horarioAnterior === "string") &&
         Array.isArray(e.dias) &&
-        typeof e.dataBase === "string"
+        typeof e.dataBase === "string" &&
+        (e.horariosSemana === undefined || (
+          typeof e.horariosSemana === "object" && e.horariosSemana !== null &&
+          Object.values(e.horariosSemana).every(horarioValido))) &&
+        (e.excecoes === undefined || (
+          typeof e.excecoes === "object" && e.excecoes !== null &&
+          Object.entries(e.excecoes).every(([k, x]) =>
+            /^\d{4}-\d{2}-\d{2}$/.test(k) && x &&
+            (x.tipo === "F" || (x.tipo === "T" && horarioValido(x))))))
       )
     )
   );
@@ -733,18 +897,106 @@ function dataUTC(texto) {
   return Date.UTC(partes[0], partes[1] - 1, partes[2]);
 }
 
-function trabalha(e, ano, mes, dia) {
+/* ---------- Horário de cada dia ---------- */
+const RE_HORA = /^\d{2}:\d{2}$/;
+const ORDEM_SEMANA = [1, 2, 3, 4, 5, 6, 0];
+const NOMES_DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+const SIGLAS_DIAS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SAB"];
+
+function dois(n) { return String(n).padStart(2, "0"); }
+function chaveData(ano, mes, dia) { return ano + "-" + dois(mes) + "-" + dois(dia); }
+
+function liquidoHorario(h) {
+  return (minutos(h.saida) - minutos(h.entrada) + 1440) % 1440 - Number(h.intervalo);
+}
+
+function horarioValido(h) {
+  return h && RE_HORA.test(h.entrada) && RE_HORA.test(h.saida) &&
+    Number.isInteger(Number(h.intervalo)) && Number(h.intervalo) >= 0 &&
+    liquidoHorario(h) > 0;
+}
+
+function horarioBase(e) {
+  return { entrada: e.entrada, saida: e.saida, intervalo: Number(e.intervalo) };
+}
+
+function mesmoHorario(a, b) {
+  return a.entrada === b.entrada && a.saida === b.saida &&
+    Number(a.intervalo) === Number(b.intervalo);
+}
+
+function textoHorario(h) { return h.entrada + "–" + h.saida; }
+
+/* Horário de um dia da semana no 5x2 (personalizado ou o principal). */
+function horarioSemana(e, w) {
+  const h = e.horariosSemana && e.horariosSemana[w];
+  return h ? { entrada: h.entrada, saida: h.saida, intervalo: Number(h.intervalo) } : horarioBase(e);
+}
+
+/* Horário que a escala normal prevê para a data (null = folga). */
+function padraoDoDia(e, ano, mes, dia) {
   const data = Date.UTC(ano, mes - 1, dia);
-
   if (e.modelo === "5x2") {
-    return e.dias.map(Number).includes(new Date(data).getUTCDay());
+    const w = new Date(data).getUTCDay();
+    return e.dias.map(Number).includes(w) ? horarioSemana(e, w) : null;
   }
+  const diferenca = Math.round((data - dataUTC(e.dataBase)) / 86400000);
+  return ((diferenca % 2) + 2) % 2 === 0 ? horarioBase(e) : null;
+}
 
-  const diferenca = Math.round(
-    (data - dataUTC(e.dataBase)) / 86400000
-  );
+function excecaoDoDia(e, ano, mes, dia) {
+  return e.excecoes ? e.excecoes[chaveData(ano, mes, dia)] : undefined;
+}
 
-  return ((diferenca % 2) + 2) % 2 === 0;
+/* Horário real da data, considerando ajustes manuais (null = folga). */
+function horarioDoDia(e, ano, mes, dia) {
+  const ex = excecaoDoDia(e, ano, mes, dia);
+  if (ex) {
+    return ex.tipo === "F" ? null
+      : { entrada: ex.entrada, saida: ex.saida, intervalo: Number(ex.intervalo) };
+  }
+  return padraoDoDia(e, ano, mes, dia);
+}
+
+function trabalha(e, ano, mes, dia) {
+  return !!horarioDoDia(e, ano, mes, dia);
+}
+
+function variaNaSemana(e) {
+  return e.modelo === "5x2" && !!e.horariosSemana &&
+    e.dias.map(Number).some(w => !mesmoHorario(horarioSemana(e, w), horarioBase(e)));
+}
+
+/* Média semanal planejada em minutos. */
+function mediaSemanalMin(e) {
+  if (e.modelo === "5x2") {
+    return e.dias.map(Number).reduce((t, w) => t + liquidoHorario(horarioSemana(e, w)), 0);
+  }
+  return jornada(e) * 3.5;
+}
+
+/* Resumo do horário: "SEG–QUA 08:00–17:24; QUI–SEX 07:00–16:24". */
+function resumoSemana(e) {
+  if (!variaNaSemana(e)) return textoHorario(horarioBase(e));
+  const dias = ORDEM_SEMANA.filter(w => e.dias.map(Number).includes(w));
+  const grupos = [];
+  dias.forEach(w => {
+    const h = horarioSemana(e, w);
+    const ult = grupos[grupos.length - 1];
+    const vizinho = ult && ORDEM_SEMANA.indexOf(w) === ORDEM_SEMANA.indexOf(ult.fim) + 1;
+    if (ult && vizinho && mesmoHorario(ult.h, h)) ult.fim = w;
+    else grupos.push({ ini: w, fim: w, h });
+  });
+  return grupos.map(g =>
+    (g.ini === g.fim ? SIGLAS_DIAS[g.ini] : SIGLAS_DIAS[g.ini] + "–" + SIGLAS_DIAS[g.fim]) +
+    " " + textoHorario(g.h)
+  ).join("; ");
+}
+
+function intervaloResumo(e) {
+  if (!variaNaSemana(e)) return Number(e.intervalo) + " min";
+  const vals = [...new Set(e.dias.map(Number).map(w => horarioSemana(e, w).intervalo))];
+  return vals.length === 1 ? vals[0] + " min" : "Varia";
 }
 
 function periodo() {
@@ -848,7 +1100,10 @@ function aplicarPadrao(id) {
       : new Date().toISOString().slice(0, 10);
   }
 
+  $("variar-semana").checked = false;
+  semanaForm = {};
   mostrarCampos();
+  atualizarCamposSemana();
 
   const media = (minutos(m.saida) - minutos(m.entrada) + 1440) % 1440 - m.intervalo;
   const semanal = media / 60 * (m.modelo === "5x2" ? 5 : 3.5);
@@ -871,7 +1126,9 @@ function limparFormulario() {
   $("titulo-formulario").textContent = "Adicionar empregado";
   $("salvar").textContent = "Adicionar empregado";
   $("cancelar").classList.add("oculto");
+  semanaForm = {};
   mostrarCampos();
+  atualizarCamposSemana();
 }
 
 function renderizarEmpregados() {
@@ -885,9 +1142,16 @@ function renderizarEmpregados() {
   }
 
   $("empregados").innerHTML = lista.map((e, indice) => {
-    const dias = e.modelo === "5x2" ? 5 : 3.5;
-    const media = jornada(e) / 60 * dias;
+    const media = mediaSemanalMin(e) / 60;
     const diferente = Math.abs(media - e.carga) > 0.01;
+    let liquidoTxt = `${formatarMinutos(jornada(e))}<br><span class="pequeno">${jornada(e)} min</span>`;
+    if (variaNaSemana(e)) {
+      const vals = e.dias.map(Number).map(w => liquidoHorario(horarioSemana(e, w)));
+      const min = Math.min(...vals), max = Math.max(...vals);
+      liquidoTxt = (min === max ? formatarMinutos(min) : formatarMinutos(min) + " a " + formatarMinutos(max)) +
+        `<br><span class="pequeno">${min === max ? min : min + " a " + max} min</span>`;
+    }
+    const qtdAjustes = e.excecoes ? Object.keys(e.excecoes).length : 0;
 
     return `
       <tr>
@@ -895,9 +1159,10 @@ function renderizarEmpregados() {
           ? `<br><span class="pequeno">Mat. ${escapar(e.matricula)}</span>` : ""}</td>
         <td class="esquerda">${escapar(e.funcao)}</td>
         <td>${escapar(e.modelo)}</td>
-        <td>${escapar(e.entrada)}–${escapar(e.saida)}</td>
-        <td>${Number(e.intervalo)} min</td>
-        <td>${formatarMinutos(jornada(e))}<br><span class="pequeno">${jornada(e)} min</span></td>
+        <td>${resumoSemana(e).split("; ").map(escapar).join("<br>")}${qtdAjustes
+          ? `<br><span class="pequeno">${qtdAjustes} dia(s) ajustado(s)</span>` : ""}</td>
+        <td>${escapar(intervaloResumo(e))}</td>
+        <td>${liquidoTxt}</td>
         <td>${horas(e.carga)}</td>
         <td class="${diferente ? "divergencia" : ""}">${horas(media)}</td>
         <td>${horas(e.carga / 6)}</td>
@@ -925,16 +1190,24 @@ function montarEscala() {
   cabecalho.push("Dias trabalhados", "Horas planejadas");
 
   const linhas = [];
+  const meta = [];
 
   dados[aba].setores.forEach(setor => {
     setor.empregados.forEach(e => {
       let diasTrabalhados = 0;
+      let minutosMes = 0;
       const marcacoes = [];
+      const dias = [];
 
       for (let dia = 1; dia <= p.quantidade; dia++) {
-        const ativo = trabalha(e, p.ano, p.mes, dia);
-        marcacoes.push(ativo ? "T" : "F");
-        if (ativo) diasTrabalhados++;
+        const h = horarioDoDia(e, p.ano, p.mes, dia);
+        const ajustado = !!excecaoDoDia(e, p.ano, p.mes, dia);
+        marcacoes.push(h ? textoHorario(h) : "F");
+        dias.push({ h, ajustado });
+        if (h) {
+          diasTrabalhados++;
+          minutosMes += liquidoHorario(h);
+        }
       }
 
       linhas.push([
@@ -942,16 +1215,17 @@ function montarEscala() {
         e.nome,
         e.funcao,
         e.modelo,
-        e.entrada + "–" + e.saida,
-        e.intervalo + " min",
+        resumoSemana(e),
+        intervaloResumo(e),
         ...marcacoes,
         diasTrabalhados,
-        horas(diasTrabalhados * jornada(e) / 60)
+        formatarMinutos(minutosMes)
       ]);
+      meta.push({ setorId: setor.id, empId: e.id, dias });
     });
   });
 
-  return { periodo: p, cabecalho, linhas };
+  return { periodo: p, cabecalho, linhas, meta };
 }
 
 function renderizarEscala() {
@@ -963,7 +1237,7 @@ function renderizarEscala() {
     return;
   }
 
-  const { periodo: p, cabecalho, linhas } = resultado;
+  const { periodo: p, cabecalho, linhas, meta } = resultado;
 
   $("resumo").textContent =
     "Período: " + nomePeriodo(p) +
@@ -983,16 +1257,24 @@ function renderizarEscala() {
       Nenhum empregado cadastrado nesta aba.
     </td></tr>`;
   } else {
-    linhas.forEach(linha => {
+    linhas.forEach((linha, n) => {
       html += "<tr>";
 
       linha.forEach((valor, indice) => {
         const dia = indice >= 6 && indice < 6 + p.quantidade;
-        const classe = dia
-          ? (valor === "T" ? "trabalho" : "folga")
-          : (indice < 3 ? "esquerda" : "");
-
-        html += `<td class="${classe}">${escapar(valor)}</td>`;
+        if (dia) {
+          const info = meta[n].dias[indice - 6];
+          const classe = "dia " + (info.h ? "trabalho" : "folga") + (info.ajustado ? " ajustado" : "");
+          const conteudo = info.h
+            ? `T<span class="hora">${escapar(info.h.entrada)}<br>${escapar(info.h.saida)}</span>`
+            : "F";
+          html += `<td class="${classe}" data-setor="${escapar(meta[n].setorId)}" ` +
+            `data-emp="${escapar(meta[n].empId)}" data-dia="${indice - 5}" ` +
+            `title="Clique para ajustar este dia">${conteudo}</td>`;
+          return;
+        }
+        const classe = indice < 3 ? "esquerda" : "";
+        html += `<td class="${classe}">${escapar(valor).split("; ").join("<br>")}</td>`;
       });
 
       html += "</tr>";
@@ -1007,6 +1289,154 @@ function atualizarTudo() {
   renderizarEmpregados();
   renderizarEscala();
 }
+
+/* ---------- Horário por dia da semana (formulário) ---------- */
+let semanaForm = {};   // { dia: { entrada, saida, intervalo } }
+
+function horarioDoFormulario() {
+  return {
+    entrada: $("entrada").value || "08:00",
+    saida: $("saida").value || "17:00",
+    intervalo: Number($("intervalo").value) || 0
+  };
+}
+
+function atualizarCamposSemana() {
+  const ligado = $("variar-semana").checked && $("modelo").value === "5x2";
+  $("campos-semana").classList.toggle("oculto", !ligado);
+  if (!ligado) return;
+
+  const marcados = Array.from(
+    document.querySelectorAll('input[name="dias"]:checked'), c => Number(c.value));
+  const ordem = ORDEM_SEMANA.filter(w => marcados.includes(w));
+
+  if (!ordem.length) {
+    $("linhas-semana").innerHTML =
+      '<tr><td colspan="5">Marque os dias de trabalho acima.</td></tr>';
+    return;
+  }
+
+  $("linhas-semana").innerHTML = ordem.map(w => {
+    if (!semanaForm[w]) semanaForm[w] = horarioDoFormulario();
+    const h = semanaForm[w];
+    const liq = horarioValido(h) ? formatarMinutos(liquidoHorario(h)) : "—";
+    return `<tr>
+      <td class="esquerda">${NOMES_DIAS[w]}</td>
+      <td><input type="time" data-w="${w}" data-campo="entrada" value="${escapar(h.entrada)}"></td>
+      <td><input type="time" data-w="${w}" data-campo="saida" value="${escapar(h.saida)}"></td>
+      <td><input type="number" min="0" max="1439" data-w="${w}" data-campo="intervalo" value="${Number(h.intervalo)}"></td>
+      <td id="liq-semana-${w}">${liq}</td>
+    </tr>`;
+  }).join("");
+}
+
+$("linhas-semana").addEventListener("input", evento => {
+  const campo = evento.target;
+  const w = campo.dataset.w;
+  if (w === undefined) return;
+  semanaForm[w] = semanaForm[w] || horarioDoFormulario();
+  semanaForm[w][campo.dataset.campo] =
+    campo.dataset.campo === "intervalo" ? Number(campo.value) : campo.value;
+  const h = semanaForm[w];
+  $("liq-semana-" + w).textContent = horarioValido(h) ? formatarMinutos(liquidoHorario(h)) : "—";
+  $("padrao").value = "";
+});
+
+$("variar-semana").addEventListener("change", () => {
+  if ($("variar-semana").checked) semanaForm = {};   // começa com o horário principal
+  $("padrao").value = "";
+  atualizarCamposSemana();
+});
+document.querySelectorAll('input[name="dias"]').forEach(c =>
+  c.addEventListener("change", atualizarCamposSemana));
+$("modelo").addEventListener("change", atualizarCamposSemana);
+
+/* ---------- Ajuste de um dia específico (clique na escala) ---------- */
+let ajusteDia = null;   // { setorId, empId, chave }
+
+function empregadoPorId(setorId, empId) {
+  const setor = dados[aba].setores.find(s => s.id === setorId);
+  return setor ? setor.empregados.find(x => x.id === empId) : undefined;
+}
+
+function mostrarCamposDia() {
+  const t = $("dia-tipo").value === "T";
+  document.querySelectorAll(".dia-hora").forEach(el => el.classList.toggle("oculto", !t));
+}
+
+function abrirAjusteDia(setorId, empId, dia) {
+  const p = periodo();
+  const e = empregadoPorId(setorId, empId);
+  if (!p || !e) return;
+
+  const chave = chaveData(p.ano, p.mes, dia);
+  ajusteDia = { setorId, empId, chave };
+  const ex = e.excecoes && e.excecoes[chave];
+  const normal = padraoDoDia(e, p.ano, p.mes, dia);
+  const sugestao = ex && ex.tipo === "T" ? ex : (normal || horarioBase(e));
+  const semana = NOMES_DIAS[new Date(Date.UTC(p.ano, p.mes - 1, dia)).getUTCDay()];
+
+  $("dia-info").textContent =
+    e.nome + " · " + dois(dia) + "/" + dois(p.mes) + "/" + p.ano + " (" + semana + ") · " +
+    "Escala normal: " + (normal
+      ? textoHorario(normal) + ", intervalo " + normal.intervalo + " min"
+      : "folga");
+  $("dia-tipo").value = ex ? ex.tipo : "escala";
+  $("dia-entrada").value = sugestao.entrada;
+  $("dia-saida").value = sugestao.saida;
+  $("dia-intervalo").value = Number(sugestao.intervalo);
+  mostrarCamposDia();
+  $("painel-dia").classList.remove("oculto");
+  $("painel-dia").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function fecharAjusteDia() {
+  ajusteDia = null;
+  $("painel-dia").classList.add("oculto");
+}
+
+$("escala").addEventListener("click", evento => {
+  const td = evento.target.closest("td.dia");
+  if (!td) return;
+  abrirAjusteDia(td.dataset.setor, td.dataset.emp, Number(td.dataset.dia));
+});
+
+$("dia-tipo").addEventListener("change", mostrarCamposDia);
+$("dia-cancelar").addEventListener("click", fecharAjusteDia);
+
+$("dia-salvar").addEventListener("click", () => {
+  if (!ajusteDia) return;
+  const e = empregadoPorId(ajusteDia.setorId, ajusteDia.empId);
+  if (!e) { fecharAjusteDia(); return; }
+
+  const tipo = $("dia-tipo").value;
+  if (tipo === "escala") {
+    if (e.excecoes) {
+      delete e.excecoes[ajusteDia.chave];
+      if (!Object.keys(e.excecoes).length) delete e.excecoes;
+    }
+  } else if (tipo === "F") {
+    e.excecoes = e.excecoes || {};
+    e.excecoes[ajusteDia.chave] = { tipo: "F" };
+  } else {
+    const h = {
+      tipo: "T",
+      entrada: $("dia-entrada").value,
+      saida: $("dia-saida").value,
+      intervalo: Number($("dia-intervalo").value)
+    };
+    if (!horarioValido(h)) {
+      alert("Confira entrada, saída e intervalo: a jornada líquida deve ser maior que zero.");
+      return;
+    }
+    e.excecoes = e.excecoes || {};
+    e.excecoes[ajusteDia.chave] = h;
+  }
+
+  salvarDados();
+  fecharAjusteDia();
+  atualizarTudo();
+});
 
 function editarEmpregado(indice) {
   const setor = setorAtual();
@@ -1029,6 +1459,10 @@ function editarEmpregado(indice) {
   document.querySelectorAll('input[name="dias"]').forEach(campo => {
     campo.checked = e.dias.map(Number).includes(Number(campo.value));
   });
+
+  semanaForm = JSON.parse(JSON.stringify(e.horariosSemana || {}));
+  $("variar-semana").checked = !!e.horariosSemana && Object.keys(e.horariosSemana).length > 0;
+  atualizarCamposSemana();
 
   $("titulo-formulario").textContent = "Editar empregado";
   $("salvar").textContent = "Salvar alterações";
@@ -1102,11 +1536,31 @@ $("formulario").addEventListener("submit", evento => {
     return;
   }
 
+  // Horários diferentes por dia da semana (somente 5x2).
+  if (modelo === "5x2" && $("variar-semana").checked) {
+    const porDia = {};
+    for (const w of dias) {
+      const h = semanaForm[w] || horarioBase(empregado);
+      const item = { entrada: h.entrada, saida: h.saida, intervalo: Number(h.intervalo) };
+      if (!horarioValido(item)) {
+        alert("Confira o horário de " + NOMES_DIAS[w] +
+          ": entrada, saída e intervalo devem dar jornada líquida maior que zero.");
+        return;
+      }
+      porDia[w] = item;
+    }
+    empregado.horariosSemana = porDia;
+  }
+
   if (editando) {
     const indice = setor.empregados.findIndex(e => e.id === editando);
     if (indice < 0) {
       alert("O empregado não foi encontrado. Cancele a edição e tente novamente.");
       return;
+    }
+    // Mantém os dias ajustados manualmente na escala.
+    if (setor.empregados[indice].excecoes) {
+      empregado.excecoes = setor.empregados[indice].excecoes;
     }
     setor.empregados[indice] = empregado;
   } else {
@@ -1154,7 +1608,7 @@ $("padrao").addEventListener("change", () => aplicarPadrao($("padrao").value));
 document.querySelectorAll('input[name="dias"]').forEach(campo => {
   campo.addEventListener("change", () => { $("padrao").value = ""; });
 });
-$("mes").addEventListener("change", renderizarEscala);
+$("mes").addEventListener("change", () => { fecharAjusteDia(); renderizarEscala(); });
 
 $("setor").addEventListener("change", () => {
   limparFormulario();
@@ -1331,6 +1785,119 @@ function textoIntervalo(min) {
   return n < 60 ? n + "min" : formatarMinutos(n);
 }
 
+function logoAtual(cfg) {
+  return cfg.logo === "padrao" ? LOGO_FORMULARIO : cfg.logo;
+}
+
+/* Desenha o logo centralizado na caixa, mantendo a proporção. */
+function desenharLogo(doc, cfg, x, y, w, h) {
+  const img = logoAtual(cfg);
+  if (!img) return;
+  try {
+    const props = doc.getImageProperties(img);
+    const maxW = w - 6, maxH = h - 6;
+    const escala = Math.min(maxW / props.width, maxH / props.height);
+    const lw = props.width * escala, lh = props.height * escala;
+    const formato = img.startsWith("data:image/png") ? "PNG" : "JPEG";
+    doc.addImage(img, formato, x + (w - lw) / 2, y + (h - lh) / 2, lw, lh);
+  } catch (e) {
+    console.warn("Logo não pôde ser desenhado", e);
+  }
+}
+
+/* ---------- Painel "Configurar formulário padrão" ---------- */
+let logoEmEdicao = "padrao";
+
+function mostrarPreviaLogo() {
+  const img = logoEmEdicao === "padrao" ? LOGO_FORMULARIO : logoEmEdicao;
+  $("cfg-previa-logo").classList.toggle("oculto", !img);
+  $("cfg-sem-logo").classList.toggle("oculto", !!img);
+  if (img) $("cfg-previa-logo").src = img;
+}
+
+function preencherConfig() {
+  if (!dados) return;
+  const c = normalizarConfig(dados.formulario);
+  $("cfg-titulo").value = c.titulo;
+  $("cfg-subtitulo").value = c.subtitulo;
+  $("cfg-codigo").value = c.codigo;
+  $("cfg-versao").value = c.versao;
+  $("data-novo").value = c.dataNovo;
+  $("cfg-linhas").value = c.linhas;
+  $("cfg-mostrar-nota").checked = c.mostrarNota;
+  $("cfg-nota").value = c.nota;
+  $("cfg-ass1").value = c.assinaturas[0];
+  $("cfg-ass2").value = c.assinaturas[1];
+  $("cfg-ass3").value = c.assinaturas[2];
+  logoEmEdicao = c.logo;
+  mostrarPreviaLogo();
+}
+
+$("form-config").addEventListener("submit", async evento => {
+  evento.preventDefault();
+  const linhas = Number($("cfg-linhas").value);
+  if (!Number.isInteger(linhas) || linhas < 0 || linhas > 40) {
+    alert("Linhas mínimas deve ser um número inteiro de 0 a 40.");
+    return;
+  }
+  const anterior = dados.formulario;
+  dados.formulario = normalizarConfig({
+    titulo: $("cfg-titulo").value.trim(),
+    subtitulo: $("cfg-subtitulo").value.trim(),
+    codigo: $("cfg-codigo").value.trim(),
+    versao: $("cfg-versao").value.trim(),
+    dataNovo: $("data-novo").value,
+    linhas,
+    mostrarNota: $("cfg-mostrar-nota").checked,
+    nota: $("cfg-nota").value,
+    assinaturas: [$("cfg-ass1").value.trim(), $("cfg-ass2").value.trim(), $("cfg-ass3").value.trim()],
+    logo: logoEmEdicao
+  });
+  const salvou = await salvarDados();
+  if (salvou) {
+    alert("Configuração do formulário salva.");
+  } else {
+    dados.formulario = anterior;
+  }
+});
+
+$("cfg-restaurar").addEventListener("click", async () => {
+  if (!confirm("Voltar todos os textos e o logo do formulário ao padrão original?")) return;
+  const anterior = dados.formulario;
+  dados.formulario = configPadrao();
+  if (await salvarDados()) {
+    preencherConfig();
+    alert("Formulário voltou ao padrão original.");
+  } else {
+    dados.formulario = anterior;
+  }
+});
+
+$("cfg-trocar-logo").addEventListener("click", () => $("cfg-arquivo-logo").click());
+$("cfg-logo-padrao").addEventListener("click", () => { logoEmEdicao = "padrao"; mostrarPreviaLogo(); });
+$("cfg-remover-logo").addEventListener("click", () => { logoEmEdicao = ""; mostrarPreviaLogo(); });
+
+$("cfg-arquivo-logo").addEventListener("change", evento => {
+  const arquivo = evento.target.files[0];
+  evento.target.value = "";
+  if (!arquivo) return;
+  if (!/^image\/(png|jpeg)$/.test(arquivo.type)) {
+    alert("Use uma imagem PNG ou JPG.");
+    return;
+  }
+  if (arquivo.size > 300 * 1024) {
+    alert("A imagem tem mais de 300 KB. Reduza o tamanho e tente de novo.");
+    return;
+  }
+  const leitor = new FileReader();
+  leitor.onload = () => {
+    logoEmEdicao = String(leitor.result);
+    mostrarPreviaLogo();
+    alert("Logo carregado. Clique em \"Salvar configuração\" para gravar.");
+  };
+  leitor.readAsDataURL(arquivo);
+});
+
 function gerarFormularioPadrao() {
   const p = periodo();
   if (!p || !dados) {
@@ -1353,7 +1920,8 @@ function gerarFormularioPadrao() {
   const ALT_CAB = 20;
   const mm = String(p.mes).padStart(2, "0");
   const textoPeriodo = "01/" + mm + "/" + p.ano + " a " + p.quantidade + "/" + mm + "/" + p.ano;
-  const dataNovo = dataBR($("data-novo").value);
+  const cfg = normalizarConfig(dados.formulario);
+  const dataNovo = dataBR(cfg.dataNovo);
   const nd = p.quantidade;
 
   function cabecalho() {
@@ -1361,7 +1929,7 @@ function gerarFormularioPadrao() {
     doc.setLineWidth(0.2);
     doc.setTextColor(0);
     doc.rect(M, M, LOGO_W, ALT_CAB);
-    try { doc.addImage(LOGO_FORMULARIO, "JPEG", M + 3, M + 3.5, 46, 13.3); } catch (e) { /* sem logo */ }
+    desenharLogo(doc, cfg, M, M, LOGO_W, ALT_CAB);
 
     const x = M + LOGO_W;
     doc.rect(x, M, MEIO_W, 8);
@@ -1373,13 +1941,13 @@ function gerarFormularioPadrao() {
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
-    doc.text("FORMULÁRIO - Administração de Pessoal", x + MEIO_W / 2, M + 5.4, { align: "center" });
+    doc.text(cfg.titulo, x + MEIO_W / 2, M + 5.4, { align: "center" });
     doc.setFontSize(9);
-    doc.text("Escala de Trabalho Mensal", x + MEIO_W / 2, M + 12.2, { align: "center" });
+    doc.text(cfg.subtitulo, x + MEIO_W / 2, M + 12.2, { align: "center" });
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.text("Código: FO.POLISTM.AP.018", x + MEIO_W / 6, M + 18.1, { align: "center" });
-    doc.text("Versão: 001", x + MEIO_W / 2, M + 18.1, { align: "center" });
+    doc.text("Código: " + cfg.codigo, x + MEIO_W / 6, M + 18.1, { align: "center" });
+    doc.text("Versão: " + cfg.versao, x + MEIO_W / 2, M + 18.1, { align: "center" });
     // "Página X/Y" é escrito no final, quando o total de páginas é conhecido.
   }
 
@@ -1410,24 +1978,39 @@ function gerarFormularioPadrao() {
   setores.forEach((setor, k) => {
     if (k > 0) doc.addPage();
 
+    const observacoes = [];
     const corpo = setor.empregados.map(e => {
-      const atual = e.entrada + "–" + e.saida;
+      const atual = resumoSemana(e).split("; ").join("\n");
       const anterior = (e.horarioAnterior || "").trim();
       const marcas = [];
-      for (let d = 1; d <= nd; d++) marcas.push(trabalha(e, p.ano, p.mes, d) ? "T" : "F");
+      const ajustes = [];
+      for (let d = 1; d <= nd; d++) {
+        const h = horarioDoDia(e, p.ano, p.mes, d);
+        const ex = excecaoDoDia(e, p.ano, p.mes, d);
+        marcas.push(h ? (ex ? "T*" : "T") : "F");
+        if (ex) {
+          ajustes.push(dois(d) + "/" + mm + " " + (h
+            ? textoHorario(h) + (Number(h.intervalo) ? " (int. " + textoIntervalo(h.intervalo) + ")" : " (sem intervalo)")
+            : "folga"));
+        }
+      }
+      if (ajustes.length) observacoes.push(e.nome + ": " + ajustes.join("; "));
+      const intervaloTxt = intervaloResumo(e) === "Varia"
+        ? "Varia" : textoIntervalo(variaNaSemana(e)
+          ? horarioSemana(e, e.dias.map(Number)[0]).intervalo : e.intervalo);
       return [
         e.matricula || "",
         e.nome,
         e.funcao,
         anterior || atual,             // Horário
         anterior ? atual : "",         // Novo Horário (só quando há horário anterior)
-        textoIntervalo(e.intervalo),
+        intervaloTxt,
         ...marcas,
         ""                             // Assinatura
       ];
     });
     // Linhas em branco, como no formulário impresso, para completar a página.
-    while (corpo.length < 15) corpo.push(new Array(7 + nd).fill(""));
+    while (corpo.length < cfg.linhas) corpo.push(new Array(7 + nd).fill(""));
 
     doc.autoTable({
       head: [
@@ -1476,41 +2059,46 @@ function gerarFormularioPadrao() {
     });
 
     // Rodapé: legenda, nota e assinaturas (vai para nova página se faltar espaço).
-    const nota =
-      "Conforme emenda constitucional nº 141, de 16 de outubro de 2026, que altera o art. 7º " +
-      "da Constituição Federal e prevê no Art. 6º A redução da duração do trabalho normal para " +
-      "40 (quarenta) horas semanais será implementada de forma progressiva, observado o seguinte: " +
-      "I - 2 (dois) meses após a publicação desta Emenda Constitucional, a duração do trabalho " +
-      "normal não excederá a 42 (quarenta e duas) horas semanais. " +
-      "Assim sendo, esta escala já apresenta adequação para " + aba + "h semanais" +
-      (dataNovo ? " a partir de " + dataNovo : "") + ".";
+    const nota = cfg.mostrarNota
+      ? cfg.nota.split("{carga}").join(aba).split("{data}").join(dataNovo || "___/___/______").trim()
+      : "";
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
-    const linhasNota = doc.splitTextToSize(nota, LARG - 4);
-    const altNota = linhasNota.length * 3.1 + 3;
+    const linhasNota = nota ? doc.splitTextToSize(nota, LARG - 4) : [];
+    const altNota = nota ? linhasNota.length * 3.1 + 3 : 0;
+    doc.setFontSize(6.5);
+    const linhasObs = observacoes.length
+      ? doc.splitTextToSize("Dias com horário diferente (T*): " + observacoes.join(" | "), LARG)
+      : [];
+    const altObs = linhasObs.length ? linhasObs.length * 2.8 + 1.5 : 0;
+    doc.setFontSize(7);
     let y = doc.lastAutoTable.finalY + 3;
-    if (y + 4 + altNota + 22 > A - 6) {
+    if (y + 4 + altObs + altNota + 22 > A - 6) {
       doc.addPage();
       cabecalho();
       y = M + ALT_CAB + 4;
     }
 
     doc.setFontSize(6);
-    doc.text("T = trabalho   F = folga", M, y + 2);
+    doc.text("T = trabalho   T* = horário diferente nesse dia   F = folga", M, y + 2);
     y += 4;
+    if (linhasObs.length) {
+      doc.setFontSize(6.5);
+      doc.text(linhasObs, M, y + 1.5);
+      y += altObs;
+    }
 
     doc.setFontSize(7);
-    doc.rect(M, y, LARG, altNota);
-    doc.text(linhasNota, M + 2, y + 3.6);
+    if (nota) {
+      doc.rect(M, y, LARG, altNota);
+      doc.text(linhasNota, M + 2, y + 3.6);
+    }
     y += altNota + 15;
 
-    const assinaturas = [
-      "Assinatura e Carimbo da Coordenação",
-      "Assinatura e Carimbo da Diretoria",
-      "Administração de Pessoal"
-    ];
+    const assinaturas = cfg.assinaturas;
     assinaturas.forEach((texto, i) => {
+      if (!texto.trim()) return;
       const cx = M + LARG * (2 * i + 1) / 6;
       doc.line(cx - 36, y, cx + 36, y);
       doc.text(texto, cx, y + 3.5, { align: "center" });
@@ -1583,6 +2171,7 @@ $("arquivo").addEventListener("change", async evento => {
     preencherSetores();
     limparFormulario();
     atualizarTudo();
+    preencherConfig();
 
     alert(salvou
       ? "Backup restaurado com sucesso."
@@ -1653,6 +2242,7 @@ async function abrirSessao(user) {
   preencherSetores();
   limparFormulario();
   atualizarTudo();
+  preencherConfig();
 
   if (modoRecuperacao) abrirPainelSenha();
   else fecharPainelSenha();
@@ -1679,7 +2269,7 @@ function fecharSessaoUI() {
 
 $("form-login").addEventListener("submit", async evento => {
   evento.preventDefault();
-  if (!sb) return;
+  if (!sb) { sb = criarCliente(); if (!sb) return; iniciarAuth(); }
 
   const email = $("login-usuario").value.trim().toLowerCase();
   const senha = $("login-senha").value;
@@ -1734,7 +2324,7 @@ $("form-login").addEventListener("submit", async evento => {
 });
 
 $("esqueci").addEventListener("click", async () => {
-  if (!sb) return;
+  if (!sb) { sb = criarCliente(); if (!sb) return; iniciarAuth(); }
   const email = $("login-usuario").value.trim().toLowerCase();
 
   if (!emailValido(email)) {
@@ -1841,7 +2431,7 @@ $("mes").value =
 definirModoLogin("entrar");
 sb = criarCliente();
 
-if (sb) {
+function iniciarAuth() {
   // Dispara ao abrir a página (INITIAL_SESSION), ao entrar, sair e no link de recuperação.
   sb.auth.onAuthStateChange((evento, sessao) => {
     // setTimeout evita chamar o Supabase de dentro deste callback (recomendação da biblioteca).
@@ -1858,6 +2448,7 @@ if (sb) {
     }, 0);
   });
 }
+if (sb) iniciarAuth();
 $("login-usuario").focus();
 </script>
 </body>
